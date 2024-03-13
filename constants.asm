@@ -1,0 +1,11 @@
+STDIN equ 0
+STDOUT equ 1
+STDERR equ 2
+CR equ 13
+LF equ 10
+EXIT_SUCCESS equ 0
+EXIT_FAILURE equ 1
+AF_INET equ 2
+SOCK_STREAM equ 1
+IPROTO_IP equ 0
+INADDR_ANY equ 0
