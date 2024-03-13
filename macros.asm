@@ -30,11 +30,7 @@ macro invoke_syscall arg0, arg1, arg2, arg3, arg4, arg5, arg6 {
   syscall
 }
 
-macro invoke_funcall func, arg0, arg1, arg2, arg3, arg4, arg5, arg6 {
-  if arg0 eq
-  else
-    mov rax, arg0
-  end if
+macro invoke_funcall func, arg1, arg2, arg3, arg4, arg5, arg6 {
   if arg1 eq
   else
     mov rdi, arg1
