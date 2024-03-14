@@ -9,3 +9,5 @@ AF_INET equ 2
 SOCK_STREAM equ 1
 IPROTO_IP equ 0
 INADDR_ANY equ 0
+AT_FDCWD equ -100
+O_RDONLY equ 0

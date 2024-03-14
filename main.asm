@@ -7,9 +7,32 @@ include 'structs.asm'
 
 MAX_CONN equ 5
 PORT equ 8021
+RESPONSE_BUFFER_SIZE equ 10240
+REQUEST_BUFFER_SIZE equ 10240
 
 segment readable executable
 entry main
+
+strlen:
+  xor rax, rax
+.loop:
+  cmp byte [rdi + rax], 0
+  je .done
+  inc rax
+  jmp .loop
+.done:
+  ret 0
+
+write_to_buffer:
+  ; write_to_buffer(filepath, buffer, size)
+  mov r10, rdi
+  mov r8, rsi
+  mov r9, rdx
+  invoke_syscall SYS_OPENAT, AT_FDCWD, r10, O_RDONLY
+  mov r10, rax
+  invoke_syscall SYS_READ, r10, r8, r9
+  invoke_syscall SYS_CLOSE, r10
+  ret 0
 
 main:
   invoke_syscall SYS_WRITE, STDOUT, socket_msg, socket_msg_len
@@ -44,9 +67,17 @@ main:
   jl error
   mov [connfd], rax
 
-  invoke_syscall SYS_WRITE, [connfd], response, response_len
+  invoke_funcall write_to_buffer, index_filepath, response_buffer, RESPONSE_BUFFER_SIZE
+  invoke_funcall strlen, response
+  mov r10, rax
+  invoke_syscall SYS_WRITE, [connfd], response, r10
 
-  invoke_syscall SYS_WRITE, STDOUT, ok_msg, ok_msg_len
+  
+  invoke_syscall SYS_READ, [connfd], request, REQUEST_BUFFER_SIZE
+  mov r10, rax
+  invoke_syscall SYS_WRITE, STDOUT, request, r10
+  
+
   invoke_syscall SYS_WRITE, STDOUT, cli_close_msg, cli_close_msg_len
   invoke_syscall SYS_CLOSE, [connfd]
   invoke_syscall SYS_WRITE, STDOUT, serv_close_msg, serv_close_msg_len
@@ -78,9 +109,6 @@ segment readable writeable
   error_msg db "INFO: ERROR!", LF
   error_msg_len = $ - error_msg
 
-  ok_msg db "INFO: OK!", LF
-  ok_msg_len = $ - ok_msg
-
   serv_close_msg db "INFO: Closing server socket", LF
   serv_close_msg_len = $ - serv_close_msg
 
@@ -97,6 +125,9 @@ segment readable writeable
            db "Content-Type: text/html; charset=utf-8", CR, LF
            db "Connection: close", CR, LF
            db CR, LF
-           db "<h1> Hello world!</h1>", CR, LF
-  response_len = $ - response
+  response_buffer db RESPONSE_BUFFER_SIZE dup(0)
+
+  request rb REQUEST_BUFFER_SIZE
+  
+  index_filepath db "index.html", 0
 

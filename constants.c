@@ -6,6 +6,7 @@
 #include <stdlib.h> 
 #include <sys/socket.h>
 #include <sys/types.h> 
+#include <fcntl.h>
 
 #define PRINT(x) (void)printf(#x " equ %d\n", x);
 
@@ -37,6 +38,10 @@ extern int main(register int const argc, register char const *const *const argv)
   PRINT(IPROTO_IP);
 
   PRINT(INADDR_ANY);
+
+  PRINT(AT_FDCWD);
+  PRINT(O_RDONLY);
+
 
   return EXIT_SUCCESS;
 }
