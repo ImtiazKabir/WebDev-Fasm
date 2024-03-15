@@ -1,3 +1,4 @@
+#include <asm-generic/socket.h>
 #include <stdio.h>
 #include <stdlib.h>
 
@@ -12,6 +13,7 @@
 
 #define CR '\r'
 #define LF '\n'
+#define SPACE ' '
 
 #define STDIN 0
 #define STDOUT 1
@@ -29,6 +31,7 @@ extern int main(register int const argc, register char const *const *const argv)
 
   PRINT(CR);
   PRINT(LF);
+  PRINT(SPACE);
 
   PRINT(EXIT_SUCCESS);
   PRINT(EXIT_FAILURE);
@@ -41,6 +44,9 @@ extern int main(register int const argc, register char const *const *const argv)
 
   PRINT(AT_FDCWD);
   PRINT(O_RDONLY);
+
+  PRINT(SOL_SOCKET);
+  PRINT(SO_REUSEADDR);
 
 
   return EXIT_SUCCESS;

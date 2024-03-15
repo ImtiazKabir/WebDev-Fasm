@@ -6,9 +6,10 @@ include 'constants.asm'
 include 'structs.asm'
 
 MAX_CONN equ 5
-PORT equ 8021
+PORT equ 3000
 RESPONSE_BUFFER_SIZE equ 10240
 REQUEST_BUFFER_SIZE equ 10240
+CONTENT_LENGTH_STRLEN equ 10
 
 segment readable executable
 entry main
@@ -34,13 +35,38 @@ write_to_buffer:
   invoke_syscall SYS_CLOSE, r10
   ret 0
 
+itoa:
+    mov rcx, 10
+    xor rdx, rdx
+    mov rax, rsi
+.loop:
+    xor rdx, rdx
+    div rcx
+    add dl, '0'
+    dec rdi
+    mov [rdi], dl
+    test rax, rax
+    jnz .loop
+    ret 0
+
 main:
+  ;lea r10, [content_length_str + CONTENT_LENGTH_STRLEN - 1]
+  ;invoke_funcall itoa, r10, 1034
+  ;invoke_syscall SYS_WRITE, STDOUT, content_length_str, CONTENT_LENGTH_STRLEN
+
   invoke_syscall SYS_WRITE, STDOUT, socket_msg, socket_msg_len
 
   invoke_syscall SYS_SOCKET, AF_INET, SOCK_STREAM, IPROTO_IP
   cmp rax, 0
   jl error
   mov [sockfd], rax
+
+  
+  invoke_syscall SYS_WRITE, STDOUT, socket_option_message, socket_option_message_len
+  invoke_syscall SYS_SETSOCKOPT, [sockfd], SOL_SOCKET, SO_REUSEADDR, optval, optlen
+  cmp rax, 0
+  jl error
+
 
   invoke_syscall SYS_WRITE, STDOUT, bind_msg, bind_msg_len
   mov [servaddr.sin_family], AF_INET
@@ -68,16 +94,23 @@ main:
   mov [connfd], rax
 
   invoke_funcall write_to_buffer, index_filepath, response_buffer, RESPONSE_BUFFER_SIZE
-  invoke_funcall strlen, response
-  mov r10, rax
-  invoke_syscall SYS_WRITE, [connfd], response, r10
 
-  
+.req_res_loop:
   invoke_syscall SYS_READ, [connfd], request, REQUEST_BUFFER_SIZE
   mov r10, rax
   invoke_syscall SYS_WRITE, STDOUT, request, r10
-  
 
+  ; handle the request here
+  
+  invoke_funcall strlen, response_buffer
+  lea r10, [content_length_str + CONTENT_LENGTH_STRLEN - 1]
+  invoke_funcall itoa, r10, rax
+  invoke_funcall strlen, response
+  mov r10, rax
+  invoke_syscall SYS_WRITE, [connfd], response, r10
+  invoke_syscall SYS_WRITE, STDOUT, response, r10
+  jmp .req_res_loop
+  
   invoke_syscall SYS_WRITE, STDOUT, cli_close_msg, cli_close_msg_len
   invoke_syscall SYS_CLOSE, [connfd]
   invoke_syscall SYS_WRITE, STDOUT, serv_close_msg, serv_close_msg_len
@@ -103,10 +136,16 @@ segment readable writeable
   socket_msg db "INFO: Creating a socket", LF
   socket_msg_len = $ - socket_msg
 
+  optval dq 1
+  optlen = $ - optval
+
+  socket_option_message db "INFO: Setting SO_REUSEADDR", LF
+  socket_option_message_len = $ - socket_option_message
+
   bind_msg db "INFO: Binding the socket", LF
   bind_msg_len = $ - bind_msg
 
-  error_msg db "INFO: ERROR!", LF
+  error_msg db "ERROR!", LF
   error_msg_len = $ - error_msg
 
   serv_close_msg db "INFO: Closing server socket", LF
@@ -123,8 +162,10 @@ segment readable writeable
 
   response db "HTTP/1.1 200 OK", CR, LF
            db "Content-Type: text/html; charset=utf-8", CR, LF
-           db "Connection: close", CR, LF
-           db CR, LF
+           db "Connection: keep-alive", CR, LF
+           db "Content-Length: "
+  content_length_str db CONTENT_LENGTH_STRLEN dup(SPACE)
+  response_separator db CR, LF, CR, LF
   response_buffer db RESPONSE_BUFFER_SIZE dup(0)
 
   request rb REQUEST_BUFFER_SIZE

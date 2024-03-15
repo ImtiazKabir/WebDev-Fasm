@@ -3,6 +3,7 @@ STDOUT equ 1
 STDERR equ 2
 CR equ 13
 LF equ 10
+SPACE equ 32
 EXIT_SUCCESS equ 0
 EXIT_FAILURE equ 1
 AF_INET equ 2
@@ -11,3 +12,5 @@ IPROTO_IP equ 0
 INADDR_ANY equ 0
 AT_FDCWD equ -100
 O_RDONLY equ 0
+SOL_SOCKET equ 1
+SO_REUSEADDR equ 2
