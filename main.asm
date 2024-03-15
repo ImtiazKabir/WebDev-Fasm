@@ -10,6 +10,7 @@ PORT equ 3000
 RESPONSE_BUFFER_SIZE equ 10240
 REQUEST_BUFFER_SIZE equ 10240
 CONTENT_LENGTH_STRLEN equ 10
+ITEM_BUFLEN equ 100
 
 segment readable executable
 entry main
@@ -49,11 +50,26 @@ itoa:
     jnz .loop
     ret 0
 
-main:
-  ;lea r10, [content_length_str + CONTENT_LENGTH_STRLEN - 1]
-  ;invoke_funcall itoa, r10, 1034
-  ;invoke_syscall SYS_WRITE, STDOUT, content_length_str, CONTENT_LENGTH_STRLEN
+strcat_wsp:
+  ; strcat_wsp(dest, src)
+.wsp_loop:
+  cmp byte [rdi], SPACE
+  je .write_loop
+  inc rdi
+  jmp .wsp_loop
+.write_loop:
+  cmp byte [rsi], 0
+  je .done
+  mov al, byte [rsi]
+  mov [rdi], al
+  inc rdi
+  inc rsi
+  jmp .write_loop
+.done:
+  ret 0
 
+
+main:
   invoke_syscall SYS_WRITE, STDOUT, socket_msg, socket_msg_len
 
   invoke_syscall SYS_SOCKET, AF_INET, SOCK_STREAM, IPROTO_IP
@@ -93,7 +109,7 @@ main:
   jl error
   mov [connfd], rax
 
-  invoke_funcall write_to_buffer, index_filepath, response_buffer, RESPONSE_BUFFER_SIZE
+  ;invoke_funcall write_to_buffer, form_filepath, response_buffer, RESPONSE_BUFFER_SIZE
 
 .req_res_loop:
   invoke_syscall SYS_READ, [connfd], request, REQUEST_BUFFER_SIZE
@@ -101,6 +117,9 @@ main:
   invoke_syscall SYS_WRITE, STDOUT, request, r10
 
   ; handle the request here
+  invoke_funcall strcat_wsp, list_items, item_beg
+  invoke_funcall strcat_wsp, list_items, item
+  invoke_funcall strcat_wsp, list_items, item_end
   
   invoke_funcall strlen, response_buffer
   lea r10, [content_length_str + CONTENT_LENGTH_STRLEN - 1]
@@ -166,9 +185,20 @@ segment readable writeable
            db "Content-Length: "
   content_length_str db CONTENT_LENGTH_STRLEN dup(SPACE)
   response_separator db CR, LF, CR, LF
-  response_buffer db RESPONSE_BUFFER_SIZE dup(0)
+  ;response_buffer db RESPONSE_BUFFER_SIZE dup(0)
+
+  response_buffer db "<form action=/chat>"
+                  db    "<input type=text name=msg>"
+                  db    "<input type=submit value=Send>"
+                  db "</form>"
+  list_begin db "<ul>"
+  list_items db ITEM_BUFLEN dup(SPACE)
+  list_end db "</ul>", 0
 
   request rb REQUEST_BUFFER_SIZE
-  
-  index_filepath db "index.html", 0
+  ;form_filepath db "form.html", 0
+
+  item_beg db "<li>", 0
+  item_end db "</li>", 0
+  item db "Test", 0
 
