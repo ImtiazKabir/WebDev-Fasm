@@ -11,6 +11,7 @@ RESPONSE_BUFFER_SIZE equ 10240
 REQUEST_BUFFER_SIZE equ 10240
 CONTENT_LENGTH_STRLEN equ 10
 ITEM_BUFLEN equ 100
+EACH_ITEM_BUFLEN equ 10
 
 segment readable executable
 entry main
@@ -50,24 +51,59 @@ itoa:
     jnz .loop
     ret 0
 
-strcat_wsp:
-  ; strcat_wsp(dest, src)
-.wsp_loop:
-  cmp byte [rdi], SPACE
-  je .write_loop
-  inc rdi
-  jmp .wsp_loop
+strneq:
+  ; strneq(str1, str2, n)
+  ; returns 0 if not equal
+  xor rax, rax
+  mov rcx, rdx
+.match_loop:
+  mov dl, byte[rsi + rcx - 1]
+  cmp byte [rdi + rcx - 1], dl
+  jne .no
+  loop .match_loop
+  mov rax, 1
+.no:
+  ret 0
+
+
+parse_msg:
+  mov rcx, EACH_ITEM_BUFLEN
+.clear:
+  mov byte [each_item + rcx - 1], SPACE
+  loop .clear
+  xor rcx, rcx
+.search_lf:
+  cmp byte [request + rcx], LF
+  je .found
+  inc rcx
+  jmp .search_lf
+.found:
+  inc rcx
+  sub rcx, msg_req_end_len
+  sub rcx, msg_req_front_len
+
+.write:
+  mov dl, byte [request + msg_req_front_len + rcx - 1]
+  mov byte [each_item + rcx - 1], dl
+  loop .write
+
+  ret 0
+
+add_msg_to_list:
+  mov rdi, list_items
+  add rdi, [item_put_index]
+  mov rsi, item_beg
 .write_loop:
-  cmp byte [rsi], 0
-  je .done
   mov al, byte [rsi]
-  mov [rdi], al
+  test al, al
+  jz .done
+  mov byte [rdi], al
   inc rdi
   inc rsi
   jmp .write_loop
 .done:
+  add [item_put_index], li_len
   ret 0
-
 
 main:
   invoke_syscall SYS_WRITE, STDOUT, socket_msg, socket_msg_len
@@ -117,10 +153,13 @@ main:
   invoke_syscall SYS_WRITE, STDOUT, request, r10
 
   ; handle the request here
-  invoke_funcall strcat_wsp, list_items, item_beg
-  invoke_funcall strcat_wsp, list_items, item
-  invoke_funcall strcat_wsp, list_items, item_end
-  
+  invoke_funcall strneq, request, msg_req_front, msg_req_front_len
+  test rax, rax
+  jz .skip
+  invoke_funcall parse_msg
+  invoke_funcall add_msg_to_list
+
+.skip:
   invoke_funcall strlen, response_buffer
   lea r10, [content_length_str + CONTENT_LENGTH_STRLEN - 1]
   invoke_funcall itoa, r10, rax
@@ -194,11 +233,20 @@ segment readable writeable
   list_begin db "<ul>"
   list_items db ITEM_BUFLEN dup(SPACE)
   list_end db "</ul>", 0
+  item_put_index dq 0
 
   request rb REQUEST_BUFFER_SIZE
   ;form_filepath db "form.html", 0
 
-  item_beg db "<li>", 0
+  item_beg db "<li>"
+  each_item db EACH_ITEM_BUFLEN dup(SPACE)
+  ;each_item db "Test"
   item_end db "</li>", 0
-  item db "Test", 0
+  li_len = $ - item_beg
+
+  msg_req_front db "GET /chat?msg="
+  msg_req_front_len = $ - msg_req_front
+
+  msg_req_end db " HTTP/1.1", CR, LF
+  msg_req_end_len = $ - msg_req_end
 
